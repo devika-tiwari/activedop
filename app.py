@@ -549,7 +549,7 @@ def parse():
 					urlprm=urlencode(dict(urlprm, n=1)),
 					tree=DrawTree(tree, senttok).text(
 						unicodelines=True, html=True, funcsep='-',
-						morphsep='/', nodeprops='t1', maxwidth=30)))))
+						morphsep='/', nodeprops='t1', maxwidth=maxwidth)))))
 	msg = '\n'.join(messages)
 	elapsed = 'CPU time elapsed: %s => %gs' % (
 			' '.join('%gs' % a for a in elapsed), sum(elapsed))
@@ -610,7 +610,7 @@ def filterparsetrees():
 					urlprm=urlencode(dict(urlprm, n=n + 1)),
 					tree=DrawTree(tree, senttok).text(
 						unicodelines=True, html=True, funcsep='-', morphsep='/',
-						nodeprops='t%d' % (n + 1), maxwidth=30))
+						nodeprops='t%d' % (n + 1), maxwidth=maxwidth))
 				for n, prob, tree, _treestr, fragments in parsetrees_)))
 	return nbest
 
@@ -638,7 +638,7 @@ def showderiv():
 				'%s\n%s' % (w, DrawTree(frag).text(unicodelines=True, html=True))
 				for frag, w in fragments or ()),
 			DrawTree(tree, senttok).text(
-				unicodelines=True, html=True, funcsep='-', maxwidth=30)))
+				unicodelines=True, html=True, funcsep='-', maxwidth=maxwidth)))
 
 
 @app.route('/annotate/edit')
@@ -659,7 +659,7 @@ def edit():
 				'this sentence.</font><button id="undo" onclick="undoAccept()">Reset</button>')
 		tree, senttok = discbrackettree(request.args.get('tree'))
 	elif 'n' in request.args:
-		msg = Markup('<button id="undo" onclick="goback()">Go back</button>')
+		msg = Markup('<button id="undo" onclick="goback()">Go back (warning: discards all work!)</button>')
 		n = int(request.args.get('n', 1))
 		session['actions'][NBEST] = n
 		require = request.args.get('require', '')
@@ -671,7 +671,7 @@ def edit():
 		senttok, parsetrees, _messages, _elapsed = resp
 		tree = parsetrees[n - 1][1]
 	elif 'tree' in request.args:
-		msg = Markup('<button id="undo" onclick="goback()">Go back</button>')
+		msg = Markup('<button id="undo" onclick="goback()">Go back (warning: discards all work!)</button>')
 		tree, senttok = discbrackettree(request.args.get('tree'))
 	else:
 		return 'ERROR: pass n or tree argument.'
@@ -740,12 +740,12 @@ def redraw():
 		session['actions'][EDITDIST] += editdistance(treestr, oldtree)
 		session.modified = True
 	return Markup('%s\n\n%s\n\n%s' % (
-			msg,
+			'<div style="height: 48px; width: auto; overflow: scroll;">' + msg + '</div>',
 			link,
 			# DrawTree(tree, senttok).svg(funcsep='-', hscale=45)
 			DrawTree(tree, senttok).text(
 				unicodelines=True, html=True, funcsep='-', morphsep='/',
-				nodeprops='t0', maxwidth=30)
+				nodeprops='t0', maxwidth=maxwidth)
 			))
 
 
@@ -840,10 +840,10 @@ def newlabel():
 	session['actions'][RELABEL] += 1
 	session.modified = True
 	return Markup('%s\n\n%s\n\n%s\t%s' % (
-			msg,
+			'<div style="height: 48px; width: auto; overflow: scroll;">' + msg + '</div>',
 			link,
 			dt.text(unicodelines=True, html=True, funcsep='-', morphsep='/',
-				nodeprops='t0', maxwidth=30),
+				nodeprops='t0', maxwidth=maxwidth),
 			treestr))
 
 
@@ -969,10 +969,10 @@ def reattach():
 		session['actions'][REATTACH] += 1
 		session.modified = True
 	return Markup('%s\n\n%s\n\n%s%s\t%s' % (
-			msg,
+			'<div style="height: 48px; width: auto; overflow: scroll;">' + msg + '</div>',
 			link, error,
 			dt.text(unicodelines=True, html=True, funcsep='-', morphsep='/',
-				nodeprops='t0', maxwidth=30),
+				nodeprops='t0', maxwidth=maxwidth),
 			treestr))
 
 
@@ -1021,7 +1021,7 @@ def reparsesubtree():
 					prob=probstr(prob),
 					tree=DrawTree(tree, subsent.split()).text(
 						unicodelines=True, html=True, funcsep='-',
-						morphsep='/', nodeprops='t%d' % (n + 1), maxwidth=30))
+						morphsep='/', nodeprops='t%d' % (n + 1), maxwidth=maxwidth))
 				for n, (prob, tree, _treestr, fragments)
 				in enumerate(parsetrees))))
 	return nbest
@@ -1072,10 +1072,10 @@ def replacesubtree():
 	link = ('<a href="/annotate/accept?%s">accept this tree</a>'
 			% urlencode(dict(sentno=sentno, tree=treestr)))
 	return Markup('%s\n\n%s\n\n%s%s\t%s' % (
-			msg,
+			'<div style="height: 48px; width: auto; overflow: scroll;">' + msg + '</div>',
 			link, error,
 			dt.text(unicodelines=True, html=True, funcsep='-', morphsep='/',
-				nodeprops='t0', maxwidth=30),
+				nodeprops='t0', maxwidth=maxwidth),
 			treestr))
 
 
@@ -1557,7 +1557,7 @@ def decisiontree(parsetrees, sent, urlprm):
 		_prob, xtree, _treestr, _fragments = parsetrees[x]
 		thistree = DrawTree(xtree, sent).text(
 				unicodelines=True, html=True, funcsep='-', morphsep='/',
-				nodeprops='t%d' % (x + 1), maxwidth=30)
+				nodeprops='t%d' % (x + 1), maxwidth=maxwidth)
 		leaves.append('<span id="dd%d" style="display: none; ">%s</span>' %
 				(x, thistree))
 	return nodes + ''.join(leaves), estimator.tree_.max_depth, path
