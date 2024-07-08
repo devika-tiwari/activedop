@@ -38,6 +38,7 @@ import json
 import sqlite3
 import logging
 import traceback
+import string
 import subprocess
 from math import log
 from time import time
@@ -713,14 +714,24 @@ def redraw():
 		treestr = request.args.get('tree')
 		link = ('<a href="/annotate/accept?%s">accept this tree</a>'
 			% urlencode(dict(sentno=sentno, tree=treestr)))
+		new_senttok = orig_senttok
 	else: 
-		cgel_tree = request.args.get('tree')
-		treestr = "(ROOT " + cgel.parse(cgel_tree)[0].ptb() + ")"
-		treestr = writediscbrackettree(DrawTree(treestr).nodes[0],orig_senttok)
+		cgel_tree = cgel.parse(request.args.get('tree'))[0]
+		for token in cgel_tree.tokens.values():
+			if len(token.prepunct) > 0:
+				token.text = ''.join(token.prepunct) + token.text
+				token.prepunct = []
+			if len(token.postpunct) > 0:
+				token.text = token.text + ''.join(token.postpunct)
+				token.postpunct = []
+		treestr = "(ROOT " + cgel_tree.ptb() + ")"
+		new_senttok = [token.text for token in cgel_tree.tokens.values() if token.text or token.constituent == 'GAP']
+		new_senttok = ["_." if element is None else element for element in new_senttok]
+		treestr = writediscbrackettree(DrawTree(treestr).nodes[0],new_senttok)
 		link = ('<a href="/annotate/accept?%s">accept this tree</a>'
 			% urlencode(dict(sentno=sentno, tree=cgel_tree)))
 	try:
-		tree, senttok, msg = validate(treestr, orig_senttok)
+		tree, senttok, msg = validate(treestr, new_senttok)
 	except ValueError as err:
 		return str(err)
 	oldtree = request.args.get('oldtree', '')
@@ -752,15 +763,34 @@ def newlabel():
 		keys = range(1,len(orig_senttok)+1)
 		cgel_tree_terminals = [node for node in cgel_tree.tokens.values() if node.text or node.constituent == 'GAP']
 		for i in keys:
-			tags[i] = {"note": None, "xpos" : None, "_lemma" : None}
+			tags[i] = {"note": None, "xpos" : None, "_lemma" : None, "prepunct": [], "postpunct":[]}
 			if cgel_tree_terminals[i-1].note:
 				tags[i].update({"note": cgel_tree_terminals[i-1].note})
 			if cgel_tree_terminals[i-1].xpos:
 				tags[i].update({"xpos": cgel_tree_terminals[i-1].xpos})
 			if cgel_tree_terminals[i-1]._lemma:
 				tags[i].update({"_lemma": cgel_tree_terminals[i-1]._lemma})
+			if len(cgel_tree_terminals[i-1].prepunct) > 0:
+				tags[i].update({"prepunct": cgel_tree_terminals[i-1].prepunct})
+			if len(cgel_tree_terminals[i-1].postpunct) > 0:
+				tags[i].update({"postpunct": cgel_tree_terminals[i-1].postpunct})
+		new_senttok = []
+		for token in cgel_tree.tokens.values():
+			if token.text or token.constituent == 'GAP':
+				if token.text is None:
+					new_senttok.append("_.")
+				else: 
+					text_out = token.text + ''.join(token.postpunct)
+					text_out = ''.join(token.prepunct) + text_out
+					new_senttok.append(text_out)
+		for token in cgel_tree.tokens.values():
+			if len(token.prepunct) > 0:
+				token.prepunct = []
+			if len(token.postpunct) > 0:
+				token.postpunct = []
 		treestr = "(ROOT " + cgel_tree.ptb() + ")"
-		treestr = writediscbrackettree(DrawTree(treestr).nodes[0],orig_senttok)
+		treestr = writediscbrackettree(DrawTree(treestr).nodes[0],new_senttok)
+		orig_senttok = new_senttok
 	try:
 		tree, senttok, msg = validate(treestr, orig_senttok)
 	except ValueError as err:
@@ -802,10 +832,8 @@ def newlabel():
 		block = writetree(ParentedTree.convert(tree), senttok, '1', 'export', comment='')  #comment='%s %r' % (username, actions))
 		block = io.StringIO(block)	# make it a file-like object
 		treestr = next(load_as_cgel(block))
-		for i in tags.keys():
-			treestr.tokens[i].note = tags[i]['note']
-			treestr.tokens[i].xpos = tags[i]['xpos']
-			treestr.tokens[i]._lemma = tags[i]['_lemma']
+		treestr = handle_tags(treestr, tags)
+		treestr = handle_punctuation(treestr, senttok)
 	link = ('<a href="/annotate/accept?%s">accept this tree</a>'
 			% urlencode(dict(sentno=sentno, tree=treestr)))
 	session['actions'][RELABEL] += 1
@@ -833,15 +861,34 @@ def reattach():
 		keys = range(1,len(orig_senttok)+1)
 		cgel_tree_terminals = [node for node in cgel_tree.tokens.values() if node.text or node.constituent == 'GAP']
 		for i in keys:
-			tags[i] = {"note": None, "xpos" : None, "_lemma" : None}
+			tags[i] = {"note": None, "xpos" : None, "_lemma" : None, "prepunct": [], "postpunct":[]}
 			if cgel_tree_terminals[i-1].note:
 				tags[i].update({"note": cgel_tree_terminals[i-1].note})
 			if cgel_tree_terminals[i-1].xpos:
 				tags[i].update({"xpos": cgel_tree_terminals[i-1].xpos})
 			if cgel_tree_terminals[i-1]._lemma:
 				tags[i].update({"_lemma": cgel_tree_terminals[i-1]._lemma})
+			if len(cgel_tree_terminals[i-1].prepunct) > 0:
+				tags[i].update({"prepunct": cgel_tree_terminals[i-1].prepunct})
+			if len(cgel_tree_terminals[i-1].postpunct) > 0:
+				tags[i].update({"postpunct": cgel_tree_terminals[i-1].postpunct})
+		new_senttok = []
+		for token in cgel_tree.tokens.values():
+			if token.text or token.constituent == 'GAP':
+				if token.text is None:
+					new_senttok.append("_.")
+				else: 
+					text_out = token.text + ''.join(token.postpunct)
+					text_out = ''.join(token.prepunct) + text_out
+					new_senttok.append(text_out)
+		for token in cgel_tree.tokens.values():
+			if len(token.prepunct) > 0:
+				token.prepunct = []
+			if len(token.postpunct) > 0:
+				token.postpunct = []
 		treestr = "(ROOT " + cgel_tree.ptb() + ")"
-		treestr = writediscbrackettree(DrawTree(treestr).nodes[0],orig_senttok)
+		treestr = writediscbrackettree(DrawTree(treestr).nodes[0],new_senttok)
+		orig_senttok = new_senttok
 	try:
 		tree, senttok, msg = validate(treestr, orig_senttok)
 	except ValueError as err:
@@ -913,10 +960,8 @@ def reattach():
 		block = writetree(ParentedTree.convert(tree), senttok, '1', 'export', comment='')  #comment='%s %r' % (username, actions))
 		block = io.StringIO(block)	# make it a file-like object
 		treestr = next(load_as_cgel(block))
-		for i in tags.keys():
-			treestr.tokens[i].note = tags[i]['note']
-			treestr.tokens[i].xpos = tags[i]['xpos']
-			treestr.tokens[i]._lemma = tags[i]['_lemma']
+		treestr = handle_tags(treestr, tags)
+		treestr = handle_punctuation(treestr, senttok)
 	link = ('<a href="/annotate/accept?%s">accept this tree</a>'
 			% urlencode(dict(sentno=sentno, tree=treestr)))
 	if error == '':
@@ -1401,6 +1446,42 @@ def getspans(tree):
 		if node is not tree:  # skip root
 			yield node.label, tuple(sorted(node.leaves()))
 
+def handle_punctuation(treestr,senttok):
+	keys = range(1,len(senttok)+1)
+	trailing_punct_pattern = f"[{re.escape(string.punctuation)}]+$"
+	initial_punct_pattern = f"^[{re.escape(string.punctuation)}]+"
+	# Regular expression to match groups of periods or any other single punctuation character
+	grouping_pattern = r'(\.{2,})|([^\w\s])'
+	for i in keys:
+		if (treestr.tokens[i].constituent != "GAP") and (treestr.tokens[i].text is not None):
+			initial_punct_match = re.search(initial_punct_pattern, treestr.tokens[i].text)
+			trailing_punct_match = re.search(trailing_punct_pattern, treestr.tokens[i].text)
+		else:
+			initial_punct_match = None
+			trailing_punct_match = None
+		if initial_punct_match: 
+			initial_sequence = initial_punct_match.group()
+			initial_matches = re.findall(grouping_pattern, initial_sequence)
+			if ("(" in initial_sequence or "[" in initial_sequence) or i == 1:
+				treestr.tokens[i].prepunct = [m for match in initial_matches for m in match if m]
+			else: 
+				treestr.tokens[i-1].postpunct = [m for match in initial_matches for m in match if m]
+			treestr.tokens[i].text = re.sub(initial_punct_pattern, '', treestr.tokens[i].text)
+		if trailing_punct_match:
+			trailing_sequence = trailing_punct_match.group()
+			trailing_matches = re.findall(grouping_pattern, trailing_sequence)
+			treestr.tokens[i].postpunct = [m for match in trailing_matches for m in match if m]
+			treestr.tokens[i].text = re.sub(trailing_punct_pattern, '', treestr.tokens[i].text)
+	return treestr
+
+def handle_tags(treestr, tags):
+		for i in tags.keys():
+			treestr.tokens[i].note = tags[i]['note']
+			treestr.tokens[i].xpos = tags[i]['xpos']
+			treestr.tokens[i]._lemma = tags[i]['_lemma']
+			treestr.tokens[i].prepunct = tags[i]['prepunct']
+			treestr.tokens[i].postpunct = tags[i]['postpunct']
+		return treestr
 
 def decisiontree(parsetrees, sent, urlprm):
 	"""Create a decision tree to select among n trees."""
