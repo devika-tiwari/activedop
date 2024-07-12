@@ -1562,7 +1562,7 @@ def decisiontree(parsetrees, sent, urlprm):
 				(x, thistree))
 	return nodes + ''.join(leaves), estimator.tree_.max_depth, path
 
-maxwidth = 20
+maxwidth = 40
 
 if __name__ == '__main__':
 	pass
