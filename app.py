@@ -740,7 +740,7 @@ def redraw():
 		session['actions'][EDITDIST] += editdistance(treestr, oldtree)
 		session.modified = True
 	return Markup('%s\n\n%s\n\n%s' % (
-			'<div style="height: 48px; width: auto; overflow: scroll;">' + msg + '</div>',
+			'<div style="height: 96px; width: auto; overflow: scroll;">' + msg + '</div>',
 			link,
 			# DrawTree(tree, senttok).svg(funcsep='-', hscale=45)
 			DrawTree(tree, senttok).text(
@@ -840,7 +840,7 @@ def newlabel():
 	session['actions'][RELABEL] += 1
 	session.modified = True
 	return Markup('%s\n\n%s\n\n%s\t%s' % (
-			'<div style="height: 48px; width: auto; overflow: scroll;">' + msg + '</div>',
+			'<div style="height: 96px; width: auto; overflow: scroll;">' + msg + '</div>',
 			link,
 			dt.text(unicodelines=True, html=True, funcsep='-', morphsep='/',
 				nodeprops='t0', maxwidth=maxwidth),
@@ -968,8 +968,8 @@ def reattach():
 	if error == '':
 		session['actions'][REATTACH] += 1
 		session.modified = True
-	return Markup('%s\n\n%s\n\n%s%s\t%s' % (
-			'<div style="height: 48px; width: auto; overflow: scroll;">' + msg + '</div>',
+	return Markup('%s\n\n%s\n\n%s\n%s\t%s' % (
+			'<div style="height: 96px; width: auto; overflow: scroll;">' + msg + '</div>',
 			link, error,
 			dt.text(unicodelines=True, html=True, funcsep='-', morphsep='/',
 				nodeprops='t0', maxwidth=maxwidth),
@@ -1072,7 +1072,7 @@ def replacesubtree():
 	link = ('<a href="/annotate/accept?%s">accept this tree</a>'
 			% urlencode(dict(sentno=sentno, tree=treestr)))
 	return Markup('%s\n\n%s\n\n%s%s\t%s' % (
-			'<div style="height: 48px; width: auto; overflow: scroll;">' + msg + '</div>',
+			'<div style="height: 96px; width: auto; overflow: scroll;">' + msg + '</div>',
 			link, error,
 			dt.text(unicodelines=True, html=True, funcsep='-', morphsep='/',
 				nodeprops='t0', maxwidth=maxwidth),
