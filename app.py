@@ -1203,6 +1203,9 @@ def download_pdf():
 		\colorlet{foo}{#1}%
 		\sethlcolor{foo}\hl{#2}}%
 	}
+	\newcommand{\p}[1]{%
+    	\sethlcolor{white}\color{gray}\hl{#1}%
+	}
 
 	\pagestyle{empty}
 	%----------------------------------------------------------------------
@@ -1233,7 +1236,7 @@ def download_pdf():
 	'''
 
 	cgeltree = request.args.get('tree')
-	inner_tex = cgel.parse(cgeltree)[0].drawtex()
+	inner_tex = cgel.parse(cgeltree)[0].drawtex(punct=True)
 	cgel_latex = HEADER + inner_tex + FOOTER
 	output_dir = "tmp"
 	if not os.path.exists(output_dir):
