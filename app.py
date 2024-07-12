@@ -840,7 +840,7 @@ def newlabel():
 			treestr = next(load_as_cgel(block2))
 			treestr = handle_tags(treestr, tags)
 			treestr = handle_punctuation(treestr, senttok)
-		except AssertionError as err:
+		except err:
 			if len(str(err)) > 0:
 				error = str(err)
 			else:
@@ -989,7 +989,7 @@ def reattach():
 			treestr = next(load_as_cgel(block2))
 			treestr = handle_tags(treestr, tags)
 			treestr = handle_punctuation(treestr, senttok)
-		except AssertionError as err:
+		except err:
 			if len(str(err)) > 0:
 				error = str(err)
 			else:
@@ -1435,7 +1435,7 @@ def validate(treestr, senttok):
 		try:
 			cgeltree = next(load_as_cgel(block))
 			nWarn = cgeltree.validate(require_verb_xpos=False, require_num_xpos=False) if app.config['CGELVALIDATE'] else None
-		except AssertionError:
+		except: # catching all exceptions
 			print(traceback.format_exc(), file=errS)
 		sys.stderr = STDERR
 		if not app.config['CGELVALIDATE']:
