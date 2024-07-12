@@ -67,7 +67,7 @@ from pylatexenc.latexencode import unicode_to_latex
 sys.path.append('./cgel')
 try:
 	import cgel
-	from scripts.activedopexport2cgel import load as load_as_cgel
+	from scripts.activedopexport2cgel import load as load_as_cgel # type: ignore
 except ImportError:
 	cgel = None
 	load_as_cgel = None
