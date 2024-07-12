@@ -760,6 +760,7 @@ def newlabel():
 		treestr = request.args.get('tree')
 	else:
 		cgel_tree = cgel.parse(request.args.get('tree'))[0]
+		orig_tree = cgel.parse(request.args.get('tree'))[0]
 		tags = {}
 		keys = range(1,len(orig_senttok)+1)
 		cgel_tree_terminals = [node for node in cgel_tree.tokens.values() if node.text or node.constituent == 'GAP']
@@ -801,6 +802,7 @@ def newlabel():
 	_treeid, nodeid = request.args.get('nodeid', '').lstrip('t').split('_')
 	nodeid = int(nodeid)
 	dt = DrawTree(tree, senttok)
+	old_dt = dt
 	m = LABELRE.match(dt.nodes[nodeid].label)
 	if 'label' in request.args:
 		label = request.args.get('label', '')
@@ -831,10 +833,29 @@ def newlabel():
 		treestr = writediscbrackettree(tree, senttok, pretty=True).rstrip()
 	else:
 		block = writetree(ParentedTree.convert(tree), senttok, '1', 'export', comment='')  #comment='%s %r' % (username, actions))
-		block = io.StringIO(block)	# make it a file-like object
-		treestr = next(load_as_cgel(block))
-		treestr = handle_tags(treestr, tags)
-		treestr = handle_punctuation(treestr, senttok)
+		block1 = io.StringIO(block)	# make it a file-like object
+		block2 = io.StringIO(block)
+		try:
+			treestr_no_tags = next(load_as_cgel(block1))
+			treestr = next(load_as_cgel(block2))
+			treestr = handle_tags(treestr, tags)
+			treestr = handle_punctuation(treestr, senttok)
+		except AssertionError as err:
+			if len(str(err)) > 0:
+				error = str(err)
+			else:
+				error = 'FATAL: would produce invalid CGELBank tree.'
+			treestr = orig_tree
+			dt = old_dt
+		else:
+			for token in treestr_no_tags.tokens.values():
+				if len(token.prepunct) > 0:
+					token.prepunct = []
+				if len(token.postpunct) > 0:
+					token.postpunct = []
+			tree_for_validation = "(ROOT " + treestr_no_tags.ptb() + ")"
+			tree_for_validation = writediscbrackettree(DrawTree(tree_for_validation).nodes[0],orig_senttok)
+			tree, sent, msg = validate(tree_for_validation, orig_senttok)
 	link = ('<a href="/annotate/accept?%s">accept this tree</a>'
 			% urlencode(dict(sentno=sentno, tree=treestr)))
 	session['actions'][RELABEL] += 1
@@ -857,6 +878,7 @@ def reattach():
 	if app.config['CGELVALIDATE'] is None:
 		treestr = request.args.get('tree')
 	else:
+		orig_tree = cgel.parse(request.args.get('tree'))[0]
 		cgel_tree = cgel.parse(request.args.get('tree'))[0]
 		tags = {}
 		keys = range(1,len(orig_senttok)+1)
@@ -895,6 +917,7 @@ def reattach():
 	except ValueError as err:
 		return str(err)
 	dt = DrawTree(tree, senttok)
+	old_dt = dt
 	error = ''
 	if request.args.get('newparent') == 'deletenode':
 		# remove nodeid by replacing it with its children
@@ -959,10 +982,29 @@ def reattach():
 		treestr = writediscbrackettree(tree, senttok, pretty=True).rstrip()
 	else:
 		block = writetree(ParentedTree.convert(tree), senttok, '1', 'export', comment='')  #comment='%s %r' % (username, actions))
-		block = io.StringIO(block)	# make it a file-like object
-		treestr = next(load_as_cgel(block))
-		treestr = handle_tags(treestr, tags)
-		treestr = handle_punctuation(treestr, senttok)
+		block1 = io.StringIO(block)	# make it a file-like object
+		block2 = io.StringIO(block)
+		try:
+			treestr_no_tags = next(load_as_cgel(block1))
+			treestr = next(load_as_cgel(block2))
+			treestr = handle_tags(treestr, tags)
+			treestr = handle_punctuation(treestr, senttok)
+		except AssertionError as err:
+			if len(str(err)) > 0:
+				error = str(err)
+			else:
+				error = 'FATAL: would produce invalid CGELBank tree.'
+			treestr = orig_tree
+			dt = old_dt
+		else:
+			for token in treestr_no_tags.tokens.values():
+				if len(token.prepunct) > 0:
+					token.prepunct = []
+				if len(token.postpunct) > 0:
+					token.postpunct = []
+			tree_for_validation = "(ROOT " + treestr_no_tags.ptb() + ")"
+			tree_for_validation = writediscbrackettree(DrawTree(tree_for_validation).nodes[0],orig_senttok)
+			tree, sent, msg = validate(tree_for_validation, orig_senttok)
 	link = ('<a href="/annotate/accept?%s">accept this tree</a>'
 			% urlencode(dict(sentno=sentno, tree=treestr)))
 	if error == '':
@@ -1101,7 +1143,15 @@ def accept():
 			treestr = request.args.get('tree')
 		else:
 			orig_senttok, _ = worker.postokenize(sent)
-			treestr = "(ROOT " + cgel.parse(request.args.get('tree'))[0].ptb() + ")"
+			cgel_tree = cgel.parse(request.args.get('tree'))[0]
+			for token in cgel_tree.tokens.values():
+				if len(token.prepunct) > 0:
+					token.text = ''.join(token.prepunct) + token.text
+					token.prepunct = []
+				if len(token.postpunct) > 0:
+					token.text = token.text + ''.join(token.postpunct)
+					token.postpunct = []
+			treestr = "(ROOT " + cgel_tree.ptb() + ")"
 			treestr = writediscbrackettree(DrawTree(treestr).nodes[0],orig_senttok)
 		tree, senttok = discbrackettree(treestr)
 		# the tokenization may have been updated with gaps, so store the new one
@@ -1131,7 +1181,8 @@ def accept():
 	cgel_tree = "none"
 	if app.config['CGELVALIDATE'] is not None:
 		block = io.StringIO(block)	# make it a file-like object
-		cgel_tree = str(next(load_as_cgel(block)))
+		cgel_tree = next(load_as_cgel(block))
+		cgel_tree = str(handle_punctuation(cgel_tree, senttok))
 	addentry(id, lineno, treeout, cgel_tree, actions)	# save annotation in the database
 	WORKERS[username].submit(worker.augment, [tree], [senttok])	# update the parser's grammar
 	
