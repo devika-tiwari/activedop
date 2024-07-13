@@ -759,40 +759,7 @@ def newlabel():
 	if app.config['CGELVALIDATE'] is None:
 		treestr = request.args.get('tree')
 	else:
-		cgel_tree = cgel.parse(request.args.get('tree'))[0]
-		orig_tree = cgel.parse(request.args.get('tree'))[0]
-		tags = {}
-		keys = range(1,len(orig_senttok)+1)
-		cgel_tree_terminals = [node for node in cgel_tree.tokens.values() if node.text or node.constituent == 'GAP']
-		for i in keys:
-			tags[i] = {"note": None, "xpos" : None, "_lemma" : None, "prepunct": [], "postpunct":[]}
-			if cgel_tree_terminals[i-1].note:
-				tags[i].update({"note": cgel_tree_terminals[i-1].note})
-			if cgel_tree_terminals[i-1].xpos:
-				tags[i].update({"xpos": cgel_tree_terminals[i-1].xpos})
-			if cgel_tree_terminals[i-1]._lemma:
-				tags[i].update({"_lemma": cgel_tree_terminals[i-1]._lemma})
-			if len(cgel_tree_terminals[i-1].prepunct) > 0:
-				tags[i].update({"prepunct": cgel_tree_terminals[i-1].prepunct})
-			if len(cgel_tree_terminals[i-1].postpunct) > 0:
-				tags[i].update({"postpunct": cgel_tree_terminals[i-1].postpunct})
-		new_senttok = []
-		for token in cgel_tree.tokens.values():
-			if token.text or token.constituent == 'GAP':
-				if token.text is None:
-					new_senttok.append("_.")
-				else: 
-					text_out = token.text + ''.join(token.postpunct)
-					text_out = ''.join(token.prepunct) + text_out
-					new_senttok.append(text_out)
-		for token in cgel_tree.tokens.values():
-			if len(token.prepunct) > 0:
-				token.prepunct = []
-			if len(token.postpunct) > 0:
-				token.postpunct = []
-		treestr = "(ROOT " + cgel_tree.ptb() + ")"
-		treestr = writediscbrackettree(DrawTree(treestr).nodes[0],new_senttok)
-		orig_senttok = new_senttok
+		treestr, orig_senttok, tags, orig_tree = strip_cgel_metadata(orig_senttok)
 	try:
 		tree, senttok, msg = validate(treestr, orig_senttok)
 	except ValueError as err:
@@ -878,40 +845,7 @@ def reattach():
 	if app.config['CGELVALIDATE'] is None:
 		treestr = request.args.get('tree')
 	else:
-		orig_tree = cgel.parse(request.args.get('tree'))[0]
-		cgel_tree = cgel.parse(request.args.get('tree'))[0]
-		tags = {}
-		keys = range(1,len(orig_senttok)+1)
-		cgel_tree_terminals = [node for node in cgel_tree.tokens.values() if node.text or node.constituent == 'GAP']
-		for i in keys:
-			tags[i] = {"note": None, "xpos" : None, "_lemma" : None, "prepunct": [], "postpunct":[]}
-			if cgel_tree_terminals[i-1].note:
-				tags[i].update({"note": cgel_tree_terminals[i-1].note})
-			if cgel_tree_terminals[i-1].xpos:
-				tags[i].update({"xpos": cgel_tree_terminals[i-1].xpos})
-			if cgel_tree_terminals[i-1]._lemma:
-				tags[i].update({"_lemma": cgel_tree_terminals[i-1]._lemma})
-			if len(cgel_tree_terminals[i-1].prepunct) > 0:
-				tags[i].update({"prepunct": cgel_tree_terminals[i-1].prepunct})
-			if len(cgel_tree_terminals[i-1].postpunct) > 0:
-				tags[i].update({"postpunct": cgel_tree_terminals[i-1].postpunct})
-		new_senttok = []
-		for token in cgel_tree.tokens.values():
-			if token.text or token.constituent == 'GAP':
-				if token.text is None:
-					new_senttok.append("_.")
-				else: 
-					text_out = token.text + ''.join(token.postpunct)
-					text_out = ''.join(token.prepunct) + text_out
-					new_senttok.append(text_out)
-		for token in cgel_tree.tokens.values():
-			if len(token.prepunct) > 0:
-				token.prepunct = []
-			if len(token.postpunct) > 0:
-				token.postpunct = []
-		treestr = "(ROOT " + cgel_tree.ptb() + ")"
-		treestr = writediscbrackettree(DrawTree(treestr).nodes[0],new_senttok)
-		orig_senttok = new_senttok
+		treestr, orig_senttok, tags, orig_tree = strip_cgel_metadata(orig_senttok)
 	try:
 		tree, senttok, msg = validate(treestr, orig_senttok)
 	except ValueError as err:
@@ -1158,16 +1092,7 @@ def accept():
 			treestr = request.args.get('tree')
 		else:
 			orig_senttok, _ = worker.postokenize(sent)
-			cgel_tree = cgel.parse(request.args.get('tree'))[0]
-			for token in cgel_tree.tokens.values():
-				if len(token.prepunct) > 0:
-					token.text = ''.join(token.prepunct) + token.text
-					token.prepunct = []
-				if len(token.postpunct) > 0:
-					token.text = token.text + ''.join(token.postpunct)
-					token.postpunct = []
-			treestr = "(ROOT " + cgel_tree.ptb() + ")"
-			treestr = writediscbrackettree(DrawTree(treestr).nodes[0],orig_senttok)
+			treestr, orig_senttok, tags, orig_tree = strip_cgel_metadata(orig_senttok)
 		tree, senttok = discbrackettree(treestr)
 		# the tokenization may have been updated with gaps, so store the new one
 		SENTENCES[lineno] = ' '.join(senttok)
@@ -1197,6 +1122,7 @@ def accept():
 	if app.config['CGELVALIDATE'] is not None:
 		block = io.StringIO(block)	# make it a file-like object
 		cgel_tree = next(load_as_cgel(block))
+		cgel_tree = handle_tags(cgel_tree, tags)
 		cgel_tree = str(handle_punctuation(cgel_tree, senttok))
 	addentry(id, lineno, treeout, cgel_tree, actions)	# save annotation in the database
 	WORKERS[username].submit(worker.augment, [tree], [senttok])	# update the parser's grammar
@@ -1635,3 +1561,40 @@ maxwidth = 40
 
 if __name__ == '__main__':
 	pass
+
+def strip_cgel_metadata(orig_senttok):
+	orig_tree = cgel.parse(request.args.get('tree'))[0]
+	cgel_tree = cgel.parse(request.args.get('tree'))[0]
+	tags = {}
+	keys = range(1,len(orig_senttok)+1)
+	cgel_tree_terminals = [node for node in cgel_tree.tokens.values() if node.text or node.constituent == 'GAP']
+	for i in keys:
+		tags[i] = {"note": None, "xpos" : None, "_lemma" : None, "prepunct": [], "postpunct":[]}
+		if cgel_tree_terminals[i-1].note:
+			tags[i].update({"note": cgel_tree_terminals[i-1].note})
+		if cgel_tree_terminals[i-1].xpos:
+			tags[i].update({"xpos": cgel_tree_terminals[i-1].xpos})
+		if cgel_tree_terminals[i-1]._lemma:
+			tags[i].update({"_lemma": cgel_tree_terminals[i-1]._lemma})
+		if len(cgel_tree_terminals[i-1].prepunct) > 0:
+			tags[i].update({"prepunct": cgel_tree_terminals[i-1].prepunct})
+		if len(cgel_tree_terminals[i-1].postpunct) > 0:
+			tags[i].update({"postpunct": cgel_tree_terminals[i-1].postpunct})
+	new_senttok = []
+	for token in cgel_tree.tokens.values():
+		if token.text or token.constituent == 'GAP':
+			if token.text is None:
+				new_senttok.append("_.")
+			else: 
+				text_out = token.text + ''.join(token.postpunct)
+				text_out = ''.join(token.prepunct) + text_out
+				new_senttok.append(text_out)
+	for token in cgel_tree.tokens.values():
+		if len(token.prepunct) > 0:
+			token.prepunct = []
+		if len(token.postpunct) > 0:
+			token.postpunct = []
+	treestr = "(ROOT " + cgel_tree.ptb() + ")"
+	treestr = writediscbrackettree(DrawTree(treestr).nodes[0],new_senttok)
+	orig_senttok = new_senttok
+	return(treestr, orig_senttok, tags, orig_tree)
