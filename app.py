@@ -840,7 +840,7 @@ def newlabel():
 			treestr = next(load_as_cgel(block2))
 			treestr = handle_tags(treestr, tags)
 			treestr = handle_punctuation(treestr, senttok)
-		except err:
+		except Exception as err:
 			if len(str(err)) > 0:
 				error = str(err)
 			else:
