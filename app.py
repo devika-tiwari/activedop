@@ -726,23 +726,14 @@ def redraw():
 		link = ('<a href="/annotate/accept?%s">accept this tree</a>'
 			% urlencode(dict(sentno=sentno, tree=treestr)))
 		new_senttok = orig_senttok
-	else: 
+		cgel_tags = {}
+	else:
 		cgel_tree = cgel.parse(request.args.get('tree'))[0]
-		for token in cgel_tree.tokens.values():
-			if len(token.prepunct) > 0:
-				token.text = ''.join(token.prepunct) + token.text
-				token.prepunct = []
-			if len(token.postpunct) > 0:
-				token.text = token.text + ''.join(token.postpunct)
-				token.postpunct = []
-		treestr = "(ROOT " + cgel_tree.ptb() + ")"
-		new_senttok = [token.text for token in cgel_tree.tokens.values() if token.text or token.constituent == 'GAP']
-		new_senttok = ["_." if element is None else element for element in new_senttok]
-		treestr = writediscbrackettree(DrawTree(treestr).nodes[0],new_senttok)
+		treestr, new_senttok, cgel_tags, orig_tree = strip_cgel_metadata(orig_senttok)
 		link = ('<a href="/annotate/accept?%s">accept this tree</a>'
 			% urlencode(dict(sentno=sentno, tree=cgel_tree)))
 	try:
-		tree, senttok, msg = validate(treestr, new_senttok)
+		tree, senttok, msg = validate(treestr, new_senttok, cgel_tags)
 	except ValueError as err:
 		return str(err)
 	oldtree = request.args.get('oldtree', '')
@@ -768,10 +759,11 @@ def newlabel():
 	orig_senttok, _ = worker.postokenize(sent)
 	if app.config['CGELVALIDATE'] is None:
 		treestr = request.args.get('tree')
+		cgel_tags = {}
 	else:
-		treestr, orig_senttok, tags, orig_tree = strip_cgel_metadata(orig_senttok)
+		treestr, orig_senttok, cgel_tags, orig_tree = strip_cgel_metadata(orig_senttok)
 	try:
-		tree, senttok, msg = validate(treestr, orig_senttok)
+		tree, senttok, msg = validate(treestr, orig_senttok, cgel_tags = cgel_tags)
 	except ValueError as err:
 		return str(err)
 	# FIXME: re-factor; check label AFTER replacing it
@@ -815,7 +807,7 @@ def newlabel():
 		try:
 			treestr_no_tags = next(load_as_cgel(block1))
 			treestr = next(load_as_cgel(block2))
-			treestr = handle_tags(treestr, tags)
+			treestr = handle_tags(treestr, cgel_tags)
 			treestr = handle_punctuation(treestr, senttok)
 		except Exception as err:
 			if len(str(err)) > 0:
@@ -824,7 +816,7 @@ def newlabel():
 				error = 'FATAL: would produce invalid CGELBank tree.'
 			treestr = orig_tree
 			dt = old_dt
-		else:
+		else: # execute only if the try block was successful
 			for token in treestr_no_tags.tokens.values():
 				if len(token.prepunct) > 0:
 					token.prepunct = []
@@ -832,7 +824,7 @@ def newlabel():
 					token.postpunct = []
 			tree_for_validation = "(ROOT " + treestr_no_tags.ptb() + ")"
 			tree_for_validation = writediscbrackettree(DrawTree(tree_for_validation).nodes[0],orig_senttok)
-			tree, sent, msg = validate(tree_for_validation, orig_senttok)
+			tree, sent, msg = validate(tree_for_validation, orig_senttok, cgel_tags = cgel_tags)
 	link = ('<a href="/annotate/accept?%s">accept this tree</a>'
 			% urlencode(dict(sentno=sentno, tree=treestr)))
 	session['actions'][RELABEL] += 1
@@ -855,7 +847,7 @@ def reattach():
 	if app.config['CGELVALIDATE'] is None:
 		treestr = request.args.get('tree')
 	else:
-		treestr, orig_senttok, tags, orig_tree = strip_cgel_metadata(orig_senttok)
+		treestr, orig_senttok, cgel_tags, orig_tree = strip_cgel_metadata(orig_senttok)
 	try:
 		tree, senttok, msg = validate(treestr, orig_senttok)
 	except ValueError as err:
@@ -946,7 +938,7 @@ def reattach():
 		try:
 			treestr_no_tags = next(load_as_cgel(block1))
 			treestr = next(load_as_cgel(block2))
-			treestr = handle_tags(treestr, tags)
+			treestr = handle_tags(treestr, cgel_tags)
 			treestr = handle_punctuation(treestr, senttok)
 		except Exception as err:
 			if len(str(err)) > 0:
@@ -963,7 +955,7 @@ def reattach():
 					token.postpunct = []
 			tree_for_validation = "(ROOT " + treestr_no_tags.ptb() + ")"
 			tree_for_validation = writediscbrackettree(DrawTree(tree_for_validation).nodes[0],orig_senttok)
-			tree, sent, msg = validate(tree_for_validation, orig_senttok)
+			tree, sent, msg = validate(tree_for_validation, orig_senttok, cgel_tags = cgel_tags)
 	link = ('<a href="/annotate/accept?%s">accept this tree</a>'
 			% urlencode(dict(sentno=sentno, tree=treestr)))
 	if error == '':
@@ -1301,7 +1293,7 @@ def isValidPhraseCat(x):
 def isValidFxn(x):
     return x in workerattr('functiontags') or x in app.config['FUNCTIONTAGWHITELIST'] or (ALLOW_UNSEEN_NONCE_FXN and '+' in x)
 
-def validate(treestr, senttok):
+def validate(treestr, senttok, cgel_tags = {}):
 	"""Verify whether a user-supplied tree is well-formed."""
 	msg = ''
 	try:
@@ -1385,6 +1377,8 @@ def validate(treestr, senttok):
 		sys.stderr = errS
 		try:
 			cgeltree = next(load_as_cgel(block))
+			cgel_tree = handle_tags(cgeltree, cgel_tags)
+			cgel_tree = handle_punctuation(cgel_tree, senttok)
 			nWarn = cgeltree.validate(require_verb_xpos=False, require_num_xpos=False) if app.config['CGELVALIDATE'] else None
 		except: # catching all exceptions
 			print(traceback.format_exc(), file=errS)
