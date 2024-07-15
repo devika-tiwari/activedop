@@ -657,7 +657,14 @@ def edit():
 	if request.args.get('annotated', False):
 		msg = Markup('<font color=red>You have already annotated '
 				'this sentence.</font><button id="undo" onclick="undoAccept()">Reset</button>')
-		tree, senttok = discbrackettree(request.args.get('tree'))
+		if app.config['CGELVALIDATE'] is None:
+			tree, senttok = discbrackettree(request.args.get('tree'))
+		else:
+			db = getdb()
+			cur = db.execute('select cgel_tree from entries where username = ? and id = ?',
+					(username, id))
+			cgel_tree = cur.fetchone()[0]
+			senttok = [token.text for token in cgel.parse(cgel_tree)[0].tokens.values() if token.text or token.constituent == 'GAP']
 	elif 'n' in request.args:
 		msg = Markup('<button id="undo" onclick="goback()">Go back (warning: discards all work!)</button>')
 		n = int(request.args.get('n', 1))
@@ -678,7 +685,10 @@ def edit():
 	if app.config['CGELVALIDATE'] is None:
 		treestr = writediscbrackettree(tree, senttok, pretty=True).rstrip()
 		rows = max(5, treestr.count('\n') + 1)
-	else: 
+	elif request.args.get('annotated', False): 
+		treestr = cgel.parse(cgel_tree)[0]
+		rows = max(5, treestr.depth)
+	else:
 		block = writetree(tree, senttok, '1', 'export', comment='')  #comment='%s %r' % (username, actions))
 		block = io.StringIO(block)
 		treestr = next(load_as_cgel(block))
