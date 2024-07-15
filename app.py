@@ -1458,11 +1458,12 @@ def handle_punctuation(treestr,senttok):
 		if initial_punct_match: 
 			initial_sequence = initial_punct_match.group()
 			initial_matches = re.findall(grouping_pattern, initial_sequence)
-			if ("(" in initial_sequence or "[" in initial_sequence) or i == 1:
-				treestr.tokens[i].prepunct = [m for match in initial_matches for m in match if m]
-			else: 
-				treestr.tokens[i-1].postpunct = [m for match in initial_matches for m in match if m]
-			treestr.tokens[i].text = re.sub(initial_punct_pattern, '', treestr.tokens[i].text)
+			if treestr.tokens[i].text not in ["'s", "'re", "'ve", "'m", "'d", "'ll"]:
+				if ("(" in initial_sequence or "[" in initial_sequence) or i == 1:
+					treestr.tokens[i].prepunct = [m for match in initial_matches for m in match if m]
+				else: 
+					treestr.tokens[i-1].postpunct = [m for match in initial_matches for m in match if m]
+				treestr.tokens[i].text = re.sub(initial_punct_pattern, '', treestr.tokens[i].text)
 		if trailing_punct_match:
 			trailing_sequence = trailing_punct_match.group()
 			trailing_matches = re.findall(grouping_pattern, trailing_sequence)
