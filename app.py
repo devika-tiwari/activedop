@@ -981,9 +981,13 @@ def reparsesubtree():
 	sent = SENTENCES[QUEUE[sentno - 1][0]]
 	orig_senttok, _ = worker.postokenize(sent)
 	username = session['username']
-	treestr = request.args.get('tree', '')
+	if app.config['CGELVALIDATE'] is None:
+		treestr = request.args.get('tree', '')
+		cgel_tags = {}
+	else:
+		treestr, orig_senttok, cgel_tags, orig_tree = strip_cgel_metadata(orig_senttok)
 	try:
-		tree, senttok, msg = validate(treestr, orig_senttok)
+		tree, senttok, msg = validate(treestr, orig_senttok, cgel_tags = cgel_tags)
 	except ValueError as err:
 		return str(err)
 	error = ''
@@ -1035,11 +1039,11 @@ def replacesubtree():
 	treestr = request.args.get('tree')
 	if app.config['CGELVALIDATE'] is None:
 		treestr = request.args.get('tree')
+		cgel_tags = {}
 	else: 
-		treestr = "(ROOT " + cgel.parse(request.args.get('tree'))[0].ptb() + ")"
-		treestr = writediscbrackettree(DrawTree(treestr).nodes[0],orig_senttok)
+		treestr, orig_senttok, cgel_tags, orig_tree = strip_cgel_metadata(orig_senttok)
 	try:
-		tree, senttok, msg = validate(treestr, orig_senttok)
+		tree, senttok, msg = validate(treestr, orig_senttok, cgel_tags = cgel_tags)
 	except ValueError as err:
 		return str(err)
 	error = ''
@@ -1063,7 +1067,36 @@ def replacesubtree():
 	dt.nodes[nodeid][:] = newsubtree[:]
 	tree = canonicalize(dt.nodes[0])
 	dt = DrawTree(tree, senttok)  # kludge..
-	treestr = writediscbrackettree(tree, senttok, pretty=True).rstrip()
+	old_dt = dt
+	if app.config['CGELVALIDATE'] is None:
+		treestr = writediscbrackettree(tree, senttok, pretty=True).rstrip()
+	else:
+		block = writetree(ParentedTree.convert(tree), senttok, '1', 'export', comment='')  #comment='%s %r' % (username, actions))
+		block1 = io.StringIO(block)	# make it a file-like object
+		block2 = io.StringIO(block)
+		try:
+			treestr_no_tags = next(load_as_cgel(block1))
+			treestr = next(load_as_cgel(block2))
+			treestr = handle_tags(treestr, cgel_tags)
+			treestr = handle_punctuation(treestr, senttok)
+		except Exception as err:
+			if len(str(err)) > 0:
+				error = str(err)
+			else:
+				error = 'FATAL: would produce invalid CGELBank tree.'
+			treestr = orig_tree
+			dt = old_dt
+		else:
+			for token in treestr_no_tags.tokens.values():
+				if len(token.prepunct) > 0:
+					token.prepunct = []
+				if len(token.postpunct) > 0:
+					token.postpunct = []
+				if token.text:
+					token.text = ptbescape(token.text)
+			tree_for_validation = "(ROOT " + treestr_no_tags.ptb() + ")"
+			tree_for_validation = writediscbrackettree(DrawTree(tree_for_validation).nodes[0],orig_senttok)
+			tree, sent, msg = validate(tree_for_validation, orig_senttok, cgel_tags = cgel_tags)
 	session['actions'][REPARSE] += 1
 	session.modified = True
 	link = ('<a href="/annotate/accept?%s">accept this tree</a>'
