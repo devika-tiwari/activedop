@@ -53,7 +53,7 @@ from flask import (Flask, Markup, Response, jsonify, request, session, g, flash,
 		stream_with_context)
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
-from discodop.tree import (Tree, ParentedTree, DrawTree, DrawDependencies,
+from discodop.tree import (Tree, ParentedTree, DrawTree, DrawDependencies, ptbescape,
 		writediscbrackettree, discbrackettree)
 from discodop.treebank import writetree, writedependencies, exporttree
 from discodop.treetransforms import canonicalize
@@ -822,6 +822,8 @@ def newlabel():
 					token.prepunct = []
 				if len(token.postpunct) > 0:
 					token.postpunct = []
+				if token.text:
+					token.text = ptbescape(token.text)
 			tree_for_validation = "(ROOT " + treestr_no_tags.ptb() + ")"
 			tree_for_validation = writediscbrackettree(DrawTree(tree_for_validation).nodes[0],orig_senttok)
 			tree, sent, msg = validate(tree_for_validation, orig_senttok, cgel_tags = cgel_tags)
@@ -953,6 +955,8 @@ def reattach():
 					token.prepunct = []
 				if len(token.postpunct) > 0:
 					token.postpunct = []
+				if token.text:
+					token.text = ptbescape(token.text)
 			tree_for_validation = "(ROOT " + treestr_no_tags.ptb() + ")"
 			tree_for_validation = writediscbrackettree(DrawTree(tree_for_validation).nodes[0],orig_senttok)
 			tree, sent, msg = validate(tree_for_validation, orig_senttok, cgel_tags = cgel_tags)
@@ -1594,7 +1598,7 @@ def strip_cgel_metadata(orig_senttok):
 				text_out = token.text + ''.join(token.postpunct)
 				text_out = ''.join(token.prepunct) + text_out
 				new_senttok.append(text_out)
-	for token in cgel_tree.tokens.values():
+			token.text = ptbescape(token.text)
 		if len(token.prepunct) > 0:
 			token.prepunct = []
 		if len(token.postpunct) > 0:
