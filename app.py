@@ -664,7 +664,16 @@ def edit():
 			cur = db.execute('select cgel_tree from entries where username = ? and id = ?',
 					(username, id))
 			cgel_tree = cur.fetchone()[0]
-			senttok = [token.text for token in cgel.parse(cgel_tree)[0].tokens.values() if token.text or token.constituent == 'GAP']
+			tokens = [tok for tok in cgel.parse(cgel_tree)[0].tokens.values()]
+			senttok = []
+			for token in tokens:
+				if token.text or token.constituent.startswith('GAP'):
+					if token.text is None:
+						senttok.append("_.")
+					else: 
+						text_out = token.text + ''.join(token.postpunct)
+						text_out = ''.join(token.prepunct) + text_out
+						senttok.append(text_out)
 	elif 'n' in request.args:
 		msg = Markup('<button id="undo" onclick="goback()">Go back (warning: discards all work!)</button>')
 		n = int(request.args.get('n', 1))
@@ -685,15 +694,16 @@ def edit():
 	if app.config['CGELVALIDATE'] is None:
 		treestr = writediscbrackettree(tree, senttok, pretty=True).rstrip()
 		rows = max(5, treestr.count('\n') + 1)
-	elif request.args.get('annotated', False): 
-		treestr = cgel.parse(cgel_tree)[0]
-		rows = max(5, treestr.depth)
 	else:
-		block = writetree(tree, senttok, '1', 'export', comment='')  #comment='%s %r' % (username, actions))
-		block = io.StringIO(block)
-		treestr = next(load_as_cgel(block))
-		treestr = handle_punctuation(treestr, senttok)
-		rows = max(5, treestr.depth)
+		if request.args.get('annotated', False): 
+			treestr = cgel.parse(cgel_tree)[0]
+			rows = max(5, treestr.depth)
+		else:
+			block = writetree(tree, senttok, '1', 'export', comment='')  #comment='%s %r' % (username, actions))
+			block = io.StringIO(block)
+			treestr = next(load_as_cgel(block))
+			treestr = handle_punctuation(treestr, senttok)
+			rows = max(5, treestr.depth)
 	return render_template('edittree.html',
 			prevlink=('/annotate/annotate/%d' % (sentno - 1))
 				if sentno > 1 else '/annotate/annotate/%d' % (len(SENTENCES)),
@@ -1490,7 +1500,7 @@ def handle_punctuation(treestr,senttok):
 	# Regular expression to match groups of periods or any other single punctuation character
 	grouping_pattern = r'(\.{2,})|([^\w\s])'
 	for i in keys:
-		if (treestr.tokens[i].constituent != "GAP") and (treestr.tokens[i].text is not None):
+		if ((not treestr.tokens[i].constituent.startswith("GAP"))) and treestr.tokens[i].text != "_." and (treestr.tokens[i].text is not None):
 			initial_punct_match = re.search(initial_punct_pattern, treestr.tokens[i].text)
 			trailing_punct_match = re.search(trailing_punct_pattern, treestr.tokens[i].text)
 		else:
@@ -1609,7 +1619,7 @@ def strip_cgel_metadata(orig_senttok):
 	cgel_tree = cgel.parse(request.args.get('tree'))[0]
 	tags = {}
 	keys = range(1,len(orig_senttok)+1)
-	cgel_tree_terminals = [node for node in cgel_tree.tokens.values() if node.text or node.constituent == 'GAP']
+	cgel_tree_terminals = [node for node in cgel_tree.tokens.values() if node.text or node.constituent.startswith('GAP')]
 	for i in keys:
 		tags[i] = {"note": None, "xpos" : None, "_lemma" : None, "prepunct": [], "postpunct":[]}
 		if cgel_tree_terminals[i-1].note:
@@ -1624,7 +1634,7 @@ def strip_cgel_metadata(orig_senttok):
 			tags[i].update({"postpunct": cgel_tree_terminals[i-1].postpunct})
 	new_senttok = []
 	for token in cgel_tree.tokens.values():
-		if token.text or token.constituent == 'GAP':
+		if token.text or token.constituent.startswith('GAP'):
 			if token.text is None:
 				new_senttok.append("_.")
 			else: 
