@@ -709,6 +709,7 @@ def edit():
 			treestr = next(load_as_cgel(block))
 			treestr = handle_punctuation(treestr, senttok)
 			rows = max(5, treestr.depth)
+	meta = treestr.metadata
 	return render_template('edittree.html',
 			prevlink=('/annotate/annotate/%d' % (sentno - 1))
 				if sentno > 1 else '/annotate/annotate/%d' % (len(SENTENCES)),
@@ -755,13 +756,19 @@ def redraw():
 	if oldtree and treestr != oldtree:
 		session['actions'][EDITDIST] += editdistance(treestr, oldtree)
 		session.modified = True
-	return Markup('%s\n\n%s\n\n%s' % (
+	metadata_str = json.dumps(cgel_tags) # Need to to this to convert dict to str so that we can store it in an HTML element
+	tooltip = "<div><script> console.log('testing from the endpoint') </script></div>"
+	return Markup('%s\n\n%s\n\n%s%s%s%s' % (
 			'<div style="height: 144px; width: auto; overflow: scroll;">' + msg + '</div>',
 			link,
 			# DrawTree(tree, senttok).svg(funcsep='-', hscale=45)
 			DrawTree(tree, senttok).text(
 				unicodelines=True, html=True, funcsep='-', morphsep='/',
-				nodeprops='t0', maxwidth=maxwidth)
+				nodeprops='t0', maxwidth=maxwidth),
+			# add hidden element with cgeltags
+			('<input type="hidden" id="cgel_metadata" value="%s">' % metadata_str),
+			'<div id="popup" class="popup">popup!</div>',
+			tooltip
 			))
 
 

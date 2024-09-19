@@ -64,7 +64,7 @@ pre, .mono, .deptree, span.tt {
 .arrow { fill: gray; }
 .dependency { fill: green; }
 .dependency.active { fill: green; }
-.word.active, { stroke: red !important; }
+.word.active { stroke: red !important; }
 .edge.active, .arrow.active {
 	stroke: #000 !important;
 	stroke-width: 1.5;
@@ -74,3 +74,13 @@ pre, .mono, .deptree, span.tt {
 .CodeMirror { border: 1px solid black; }
 #edit div.CodeMirror span.CodeMirror-matchingbracket { color: #000; background-color: lightgray;}
 #edit div.CodeMirror span.CodeMirror-nonmatchingbracket { color: #000; background-color: #a22;}
+
+.popup {
+	position: absolute;
+	display: none; /* Hidden by default */
+	background-color: #afc076;
+	border: 1px solid #000;
+	padding: 10px;
+	z-index: 1000; 
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  }

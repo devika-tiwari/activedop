@@ -132,7 +132,6 @@
 <script>
 	var oldtree = '';  // used to track changes in the text area
 	window.onload = replacetree;
-
 	var editor = CodeMirror.fromTextArea(
 			document.queryform.tree,
 			{
@@ -141,5 +140,66 @@
 				matchBrackets: true,
 			});
 </script>
+
+<!-- <script>
+	x = document.getElementById('tree')
+	document.getElementById('tree').addEventListener('mouseover', function() {
+		console.log("Mouse is over the tree element.");
+	});
+
+	
+	console.log("Hi there line 149")
+	const spanElements = x.querySelectorAll('span');
+	console.log(`spanElements Length:${spanElements.length}`)
+
+        // Iterate through each <span> element
+        spanElements.forEach(function(span) {
+			console.log("hi there line 154")
+            console.log(span.innerText); // Print the text content of each <span>
+        });
+</script> -->
+
+<!-- <div id="popup" class="popup">popup!</div>
+
+<script>
+    // Select all elements with the class "p"
+    //const elements = document.querySelectorAll('.p');
+	var elems = document.querySelectorAll('pre .p')
+
+    const popup = document.getElementById('popup'); // Select the popup box
+	console.log(document)
+    document.querySelectorAll('pre .p').forEach(element => {
+      // Show the popup when mouse is over the element
+      element.addEventListener('mouseover', function(event) {
+		console.log('Mouse over element:', element);
+        popup.style.display = 'block'; // Show the popup
+        popup.style.left = event.pageX + 'px'; // Position the popup near the mouse
+        popup.style.top = event.pageY + 'px';
+      });
+
+      // Hide the popup when mouse leaves the element
+      element.addEventListener('mouseout', function() {
+        popup.style.display = 'none'; // Hide the popup
+      });
+    });
+  </script> -->
+
+<!-- <script>
+	const elementToHover = document.
+		getElementById('tree');
+	const elementToPopup = document.
+		getElementById('popup');
+
+	elementToHover.addEventListener('mouseenter',
+		() => {
+			elementToPopup.style.display = 'block';
+		});
+
+	elementToHover.addEventListener('mouseleave',
+		() => {
+			elementToPopup.style.display = 'none';
+		});
+</script> -->
+
 
 {% endblock %}

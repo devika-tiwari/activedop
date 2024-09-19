@@ -555,3 +555,28 @@ function newproj(ev) {
 	xmlhttp.open("GET", url, true);
 	xmlhttp.send(null);
 }
+
+function add_tooltip() {
+
+    // Select all elements with the class "p"
+    //const elements = document.querySelectorAll('.p');
+	var elems = document.querySelectorAll('pre .p')
+
+    const popup = document.getElementById('popup'); // Select the popup box
+	console.log("test")
+    document.querySelectorAll('pre .p').forEach(element => {
+      // Show the popup when mouse is over the element
+      element.addEventListener('mouseover', function(event) {
+		console.log('Mouse over element:', element);
+        popup.style.display = 'block'; // Show the popup
+        popup.style.left = event.pageX + 'px'; // Position the popup near the mouse
+        popup.style.top = event.pageY + 'px';
+      });
+
+      // Hide the popup when mouse leaves the element
+      element.addEventListener('mouseout', function() {
+        popup.style.display = 'none'; // Hide the popup
+      });
+    });
+ 
+}
